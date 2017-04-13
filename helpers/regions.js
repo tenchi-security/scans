@@ -17,6 +17,7 @@ var regions = [
 
 module.exports = {
 	all: regions,
+	cloudfront: ['us-east-1'], // CloudFront uses the default global region
 	cloudtrail: regions,
 	configservice: regions,
 	ec2: regions,
