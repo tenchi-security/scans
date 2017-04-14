@@ -7,45 +7,90 @@ var collection = {};
 var AWSConfig = {};
 
 var calls = {
-	CloudFront: {
-		listDistributions: {
-			property: 'DistributionList',
-			secondProperty: 'Items'
+	// CloudFront: {
+	// 	listDistributions: {
+	// 		property: 'DistributionList',
+	// 		secondProperty: 'Items'
+	// 	}
+	// },
+	// CloudTrail: {
+	// 	describeTrails: {
+	// 		property: 'trailList'
+	// 	}
+	// },
+	// ConfigService: {
+	// 	describeConfigurationRecorders: {
+	// 		property: 'ConfigurationRecorders'
+	// 	},
+	// 	describeConfigurationRecorderStatus: {
+	// 		property: 'ConfigurationRecordersStatus'
+	// 	}
+	// },
+	// EC2: {
+	// 	describeAccountAttributes: {
+	// 		property: 'AccountAttributes'
+	// 	},
+	// 	describeAddresses: {
+	// 		property: 'Addresses'
+	// 	},
+	// 	describeInstances: {
+	// 		property: 'Reservations'
+	// 	},
+	// 	describeSecurityGroups: {
+	// 		property: 'SecurityGroups'
+	// 	},
+	// 	describeVpcs: {
+	// 		property: 'Vpcs'
+	// 	},
+	// 	describeFlowLogs: {
+	// 		property: 'FlowLogs'
+	// 	}
+	// },
+	// ELB: {
+	// 	describeLoadBalancers: {
+	// 		property: 'LoadBalancerDescriptions'
+	// 	}
+	// },
+	IAM: {
+		listServerCertificates: {
+			property: 'ServerCertificateMetadataList'
+		},
+		generateCredentialReport: {
+			override: true
 		}
 	},
-	CloudTrail: {
-		describeTrails: {
-			property: 'trailList'
-		}
-	},
-	ConfigService: {
-		describeConfigurationRecorders: {
-			property: 'ConfigurationRecorders'
-		},
-		describeConfigurationRecorderStatus: {
-			property: 'ConfigurationRecordersStatus'
-		}
-	},
-	EC2: {
-		describeAccountAttributes: {
-			property: 'AccountAttributes'
-		},
-		describeAddresses: {
-			property: 'Addresses'
-		},
-		describeInstances: {
-			property: 'Reservations'
-		},
-		describeSecurityGroups: {
-			property: 'SecurityGroups'
-		}
-	},
-	ELB: {
-		describeLoadBalancers: {
-			property: 'LoadBalancerDescriptions'
-		}
-	}
+	// KMS: {
+	// 	listKeys: {
+	// 		property: 'Keys'
+	// 	}
+	// },
+	// RDS: {
+	// 	describeDBInstances: {
+	// 		property: 'DBInstances'
+	// 	},
+	// 	describeDBClusters: {
+	// 		property: 'DBClusters'
+	// 	}
+	// },
+	// Route53Domains: {
+	// 	listDomains: {
+	// 		property: 'Domains'
+	// 	}
+	// },
+	// S3: {
+	// 	listBuckets: {
+	// 		property: 'Buckets'
+	// 	}
+	// }
 };
+
+var postcalls = [
+	{
+		S3: [
+			'getBucketLogging'
+		]
+	}
+];
 
 // Loop through all of the top-level collectors for each service
 async.eachOfLimit(calls, 5, function(call, service, serviceCb){
@@ -66,7 +111,7 @@ async.eachOfLimit(calls, 5, function(call, service, serviceCb){
 			LocalAWSConfig.region = region;
 
 			if (callObj.override) {
-				callObj.override(LocalAWSConfig, collection, function(){
+				collectors[serviceLower][callKey](LocalAWSConfig, collection, function(){
 					regionCb();
 				});
 			} else {
@@ -98,35 +143,14 @@ async.eachOfLimit(calls, 5, function(call, service, serviceCb){
 		serviceCb();
 	});
 }, function(){
-	console.log(JSON.stringify(collection, null, 2));
+	// Now loop through the follow up calls
+	async.eachSeries(postcalls, function(postcallObj, postcallCb){
+		async.eachOfLimit(postcallObj, 1, function(serviceArr, service, serviceCb){
+
+		}, function(){
+			postcallCb();
+		});
+	}, function(){
+		console.log(JSON.stringify(collection, null, 2));
+	});
 });
-
-
-// Loop through all of the top-level collectors for each service
-// async.eachOfLimit(collectors, 5, function(collector, service, serviceCb){
-// 	if (!collection[service]) collection[service] = {};
-
-// 	// Loop through each of the service's functions
-// 	async.eachOfLimit(collector, 5, function(callFunction, callKey, callCb){
-// 		if (!collection[service][callKey]) collection[service][callKey] = {};
-
-// 		async.eachLimit(helpers.regions[service], helpers.MAX_REGIONS_AT_A_TIME, function(region, regionCb){
-// 			//if (settings.skip_regions && settings.skip_regions.indexOf(region)) return regionCb();
-
-// 			if (!collection[service][callKey][region]) collection[service][callKey][region] = {};
-
-// 			var LocalAWSConfig = JSON.parse(JSON.stringify(AWSConfig));
-// 			LocalAWSConfig.region = region;
-
-// 			callFunction(LocalAWSConfig, collection, function(){
-// 				regionCb();
-// 			});
-// 		}, function(){
-// 			callCb();
-// 		});
-// 	}, function(){
-// 		serviceCb();
-// 	});
-// }, function(){
-// 	console.log(JSON.stringify(collection, null, 2));
-// });
