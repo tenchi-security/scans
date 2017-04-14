@@ -93,64 +93,97 @@ var postcalls = [
 ];
 
 // Loop through all of the top-level collectors for each service
-async.eachOfLimit(calls, 5, function(call, service, serviceCb){
-	var serviceLower = service.toLowerCase();
+// async.eachOfLimit(calls, 5, function(call, service, serviceCb){
+// 	var serviceLower = service.toLowerCase();
 
-	if (!collection[serviceLower]) collection[serviceLower] = {};
+// 	if (!collection[serviceLower]) collection[serviceLower] = {};
 
-	// Loop through each of the service's functions
-	async.eachOfLimit(call, 5, function(callObj, callKey, callCb){
-		if (!collection[serviceLower][callKey]) collection[serviceLower][callKey] = {};
+// 	// Loop through each of the service's functions
+// 	async.eachOfLimit(call, 5, function(callObj, callKey, callCb){
+// 		if (!collection[serviceLower][callKey]) collection[serviceLower][callKey] = {};
 
-		async.eachLimit(helpers.regions[serviceLower], helpers.MAX_REGIONS_AT_A_TIME, function(region, regionCb){
-			//if (settings.skip_regions && settings.skip_regions.indexOf(region)) return regionCb();
+// 		async.eachLimit(helpers.regions[serviceLower], helpers.MAX_REGIONS_AT_A_TIME, function(region, regionCb){
+// 			//if (settings.skip_regions && settings.skip_regions.indexOf(region)) return regionCb();
 
-			if (!collection[serviceLower][callKey][region]) collection[serviceLower][callKey][region] = {};
+// 			if (!collection[serviceLower][callKey][region]) collection[serviceLower][callKey][region] = {};
 
-			var LocalAWSConfig = JSON.parse(JSON.stringify(AWSConfig));
-			LocalAWSConfig.region = region;
+// 			var LocalAWSConfig = JSON.parse(JSON.stringify(AWSConfig));
+// 			LocalAWSConfig.region = region;
 
-			if (callObj.override) {
+// 			if (callObj.override) {
+// 				collectors[serviceLower][callKey](LocalAWSConfig, collection, function(){
+// 					regionCb();
+// 				});
+// 			} else {
+// 				var executor = new AWS[service](LocalAWSConfig);
+
+// 				executor[callKey](function(err, data){
+// 					if (err) {
+// 						collection[serviceLower][callKey][region].err = err;
+// 					}
+					
+// 					// TODO: pagination
+// 					if (!data) return regionCb();
+// 					if (callObj.property && !data[callObj.property]) return regionCb();
+// 					if (callObj.secondProperty && !data[callObj.secondProperty]) return regionCb();
+
+// 					if (callObj.secondProperty) {
+// 						collection[serviceLower][callKey][region].data = data[callObj.property][callObj.secondProperty];
+// 					} else {
+// 						collection[serviceLower][callKey][region].data = data[callObj.property];
+// 					}
+
+// 					regionCb();
+// 				});
+// 			}
+// 		}, function(){
+// 			callCb();
+// 		});
+// 	}, function(){
+// 		serviceCb();
+// 	});
+// }, function(){
+// 	// Now loop through the follow up calls
+// 	async.eachSeries(postcalls, function(postcallObj, postcallCb){
+// 		async.eachOfLimit(postcallObj, 1, function(serviceArr, service, serviceCb){
+
+// 		}, function(){
+// 			postcallCb();
+// 		});
+// 	}, function(){
+// 		console.log(JSON.stringify(collection, null, 2));
+// 	});
+// });
+
+
+async.eachSeries(postcalls, function(postcallObj, postcallCb){
+	async.eachOfLimit(postcallObj, 1, function(serviceArr, service, serviceCb){
+		var serviceLower = service.toLowerCase();
+		if (!collection[serviceLower]) collection[serviceLower] = {};
+
+		async.eachLimit(serviceArr, 1, function(callKey, callCb){
+			if (!collection[serviceLower][callKey]) collection[serviceLower][callKey] = {};
+			
+			async.eachLimit(helpers.regions[serviceLower], helpers.MAX_REGIONS_AT_A_TIME, function(region, regionCb){
+				//if (settings.skip_regions && settings.skip_regions.indexOf(region)) return regionCb();
+				if (!collection[serviceLower][callKey][region]) collection[serviceLower][callKey][region] = {};
+
+				var LocalAWSConfig = JSON.parse(JSON.stringify(AWSConfig));
+				LocalAWSConfig.region = region;
+
 				collectors[serviceLower][callKey](LocalAWSConfig, collection, function(){
 					regionCb();
 				});
-			} else {
-				var executor = new AWS[service](LocalAWSConfig);
 
-				executor[callKey](function(err, data){
-					if (err) {
-						collection[serviceLower][callKey][region].err = err;
-					}
-					
-					// TODO: pagination
-					if (!data) return regionCb();
-					if (callObj.property && !data[callObj.property]) return regionCb();
-					if (callObj.secondProperty && !data[callObj.secondProperty]) return regionCb();
-
-					if (callObj.secondProperty) {
-						collection[serviceLower][callKey][region].data = data[callObj.property][callObj.secondProperty];
-					} else {
-						collection[serviceLower][callKey][region].data = data[callObj.property];
-					}
-
-					regionCb();
-				});
-			}
+			}, function(){
+				callCb();
+			});
 		}, function(){
-			callCb();
+			serviceCb();
 		});
 	}, function(){
-		serviceCb();
+		postcallCb();
 	});
 }, function(){
-	// Now loop through the follow up calls
-	async.eachSeries(postcalls, function(postcallObj, postcallCb){
-		async.eachOfLimit(postcallObj, 1, function(serviceArr, service, serviceCb){
-
-		}, function(){
-			postcallCb();
-		});
-	}, function(){
-		console.log(JSON.stringify(collection, null, 2));
-	});
+	//console.log(JSON.stringify(collection, null, 2));
 });
