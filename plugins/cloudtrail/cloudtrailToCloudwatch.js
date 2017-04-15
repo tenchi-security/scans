@@ -14,70 +14,38 @@ module.exports = {
 		var results = [];
 		var source = {};
 
-		async.eachLimit(helpers.regions.cloudtrail, helpers.MAX_REGIONS_AT_A_TIME, function(region, cb){
-			var LocalAWSConfig = JSON.parse(JSON.stringify(AWSConfig));
+		async.each(helpers.regions.cloudtrail, function(region, cb){
+			var describeTrails = (cache.cloudtrail &&
+								  cache.cloudtrail.describeTrails &&
+								  cache.cloudtrail.describeTrails[region]) ?
+								  cache.cloudtrail.describeTrails[region] : null;
 
-			// Update the region
-			LocalAWSConfig.region = region;
-			var cloudtrail = new AWS.CloudTrail(LocalAWSConfig);
+			if (includeSource) {
+				source['describeTrails'] = {};
+				source['describeTrails'][region] = describeTrails;
+			}
 
-			helpers.cache(cache, cloudtrail, 'describeTrails', function(err, data) {
-				if (includeSource) source[region] = {error: err, data: data};
+			if (!describeTrails || describeTrails.err || !describeTrails.data) {
+				helpers.addResult(3, 'Unable to query for CloudTrail CloudWatch integration status', region);
+				return rcb();
+			}
 
-				if (err) {
-					results.push({
-						status: 3,
-						message: 'Unable to query for CloudTrail CloudWatch integration status',
-						region: region
-					});
-
-					return cb();
-				}
-
-				// Perform checks for establishing if MFA token is enabled
-				if (data && data.trailList) {
-					if (!data.trailList.length) {
-						results.push({
-							status: 2,
-							message: 'CloudTrail is not enabled',
-							region: region
-						});
-					} else if (data.trailList[0]) {
-						for (t in data.trailList) {
-							if (!data.trailList[t].CloudWatchLogsLogGroupArn) {
-								results.push({
-									status: 2,
-									message: 'CloudTrail CloudWatch integration is not enabled',
-									region: region,
-									resource: data.trailList[t].TrailARN
-								});
-							} else {
-								results.push({
-									status: 0,
-									message: 'CloudTrail CloudWatch integration is enabled',
-									region: region,
-									resource: data.trailList[t].TrailARN
-								});
-							}
-						}
+			if (!describeTrails.data.length) {
+				helpers.addResult(2, 'CloudTrail is not enabled', region);
+			} else if (describeTrails.data[0]) {
+				for (t in describeTrails.data) {
+					if (!describeTrails.data[t].CloudWatchLogsLogGroupArn) {
+						helpers.addResult(2, 'CloudTrail CloudWatch integration is not enabled',
+							region, describeTrails.data[t].TrailARN)
 					} else {
-						results.push({
-							status: 2,
-							message: 'CloudTrail is enabled but is not properly configured',
-							region: region
-						});
+						helpers.addResult(0, 'CloudTrail CloudWatch integration is enabled',
+							region, describeTrails.data[t].TrailARN)
 					}
-					cb();
-				} else {
-					results.push({
-						status: 3,
-						message: 'Unable to query for CloudTrail CloudWatch integration status',
-						region: region
-					});
-
-					cb();
 				}
-			});
+			} else {
+				helpers.addResult(2, 'CloudTrail is enabled but is not properly configured', region);
+			}
+			cb();
 		}, function(){
 			callback(null, results, source);
 		});

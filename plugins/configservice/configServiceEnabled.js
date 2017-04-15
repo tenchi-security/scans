@@ -1,5 +1,4 @@
 var async = require('async');
-var AWS = require('aws-sdk');
 var helpers = require('../../helpers');
 
 module.exports = {
@@ -16,104 +15,72 @@ module.exports = {
 
 		var globalServicesMonitored = false;
 
-		async.eachLimit(helpers.regions.configservice, helpers.MAX_REGIONS_AT_A_TIME, function(region, rcb){
-			var LocalAWSConfig = JSON.parse(JSON.stringify(AWSConfig));
+		async.each(helpers.regions.configservice, function(region, rcb){
+			var describeConfigurationRecorders = (cache.configservice &&
+				  cache.configservice.describeConfigurationRecorders &&
+				  cache.configservice.describeConfigurationRecorders[region]) ?
+				  cache.configservice.describeConfigurationRecorders[region] : null;
 
-			// Update the region
-			LocalAWSConfig.region = region;
-			var configservice = new AWS.ConfigService(LocalAWSConfig);
+			var describeConfigurationRecorderStatus = (cache.configservice &&
+				  cache.configservice.describeConfigurationRecorderStatus &&
+				  cache.configservice.describeConfigurationRecorderStatus[region]) ?
+				  cache.configservice.describeConfigurationRecorderStatus[region] : null;
 
-			async.parallel([
-				// See if global services are monitored
-				function(pcb) {
-					if (includeSource) source['describeConfigurationRecorders'] = {};
-
-					helpers.cache(cache, configservice, 'describeConfigurationRecorders', function(err, data) {
-						if (includeSource) source['describeConfigurationRecorders'][region] = {error: err, data: data};
-
-						if (data &&
-							data.ConfigurationRecorders &&
-							data.ConfigurationRecorders[0] &&
-							data.ConfigurationRecorders[0].recordingGroup &&
-							data.ConfigurationRecorders[0].recordingGroup.includeGlobalResourceTypes) {
-							globalServicesMonitored = true;
-						}
-
-						pcb();
-					});
-				},
-				// Look up API response that returns whether the config service is recording
-				function(pcb) {
-					if (includeSource) source['describeConfigurationRecorderStatus'] = {};
-
-					helpers.cache(cache, configservice, 'describeConfigurationRecorderStatus', function(err, data) {
-						if (includeSource) source['describeConfigurationRecorderStatus'][region] = {error: err, data: data};
-
-						if (err || !data || !data.ConfigurationRecordersStatus) {
-							results.push({
-								status: 3,
-								message: 'Unable to query for Config Service status',
-								region: region
-							});
-							return pcb();
-						}
-
-						if (data.ConfigurationRecordersStatus[0]) {
-							if (data.ConfigurationRecordersStatus[0].recording) {
-								if (data.ConfigurationRecordersStatus[0].lastStatus &&
-									(data.ConfigurationRecordersStatus[0].lastStatus == 'SUCCESS' ||
-									 data.ConfigurationRecordersStatus[0].lastStatus == 'PENDING')) {
-									results.push({
-										status: 0,
-										message: 'Config Service is configured, recording, and delivering properly',
-										region: region
-									});
-								} else {
-									results.push({
-										status: 1,
-										message: 'Config Service is configured, and recording, but not delivering properly',
-										region: region
-									});
-								}
-							} else {
-								results.push({
-									status: 2,
-									message: 'Config Service is configured but not recording',
-									region: region
-								});
-							}
-
-							return pcb();
-						}
-
-						results.push({
-							status: 2,
-							message: 'Config Service is not configured',
-							region: region
-						});
-
-						pcb();
-					});
-				}
-			], function(){
-				rcb();
-			});
-		}, function(){
-			if (!globalServicesMonitored) {
-				results.push({
-					status: 2,
-					message: 'Config Service is not monitoring global services',
-					region: 'global'
-				});
-			} else {
-				results.push({
-					status: 0,
-					message: 'Config Service is monitoring global services',
-					region: 'global'
-				});
+			if (includeSource) {
+				source['describeConfigurationRecorders'] = {};
+				source['describeConfigurationRecorderStatus'] = {};
+				source['describeConfigurationRecorders'][region] = describeConfigurationRecorders;
+				source['describeConfigurationRecorderStatus'][region] = describeConfigurationRecorderStatus;
 			}
 
-			return callback(null, results, source);
+			if (describeConfigurationRecorders &&
+				describeConfigurationRecorders.data &&
+				describeConfigurationRecorders.data.ConfigurationRecorders &&
+				describeConfigurationRecorders.data.ConfigurationRecorders[0] &&
+				describeConfigurationRecorders.data.ConfigurationRecorders[0].recordingGroup &&
+				describeConfigurationRecorders.data.ConfigurationRecorders[0].recordingGroup.includeGlobalResourceTypes) {
+				globalServicesMonitored = true;
+			}
+
+			if (!describeConfigurationRecorderStatus ||
+				describeConfigurationRecorderStatus.err ||
+				!describeConfigurationRecorderStatus.data ||
+				!describeConfigurationRecorderStatus.data.ConfigurationRecordersStatus) {
+				helpers.addResults(3, 'Unable to query for Config Service status', region);
+				return rcb();
+			}
+
+			if (describeConfigurationRecorderStatus.data.ConfigurationRecordersStatus[0]) {
+				var crs = describeConfigurationRecorderStatus.data.ConfigurationRecordersStatus[0];
+
+				if (crs.recording) {
+					if (crs.lastStatus &&
+						(crs.lastStatus == 'SUCCESS' ||
+						 crs.lastStatus == 'PENDING')) {
+						helpers.addResults(0,
+							'Config Service is configured, recording, and delivering properly', region);
+					} else {
+						helpers.addResults(1,
+							'Config Service is configured, and recording, but not delivering properly', region);
+					}
+				} else {
+					helpers.addResults(2, 'Config Service is configured but not recording', region);
+				}
+
+				return rcb();
+			}
+
+			helpers.addResults(2, 'Config Service is not configured', region);
+
+			rcb();
+		}, function(){
+			if (!globalServicesMonitored) {
+				helpers.addResults(2, 'Config Service is not monitoring global services');
+			} else {
+				helpers.addResults(0, 'Config Service is monitoring global services');
+			}
+
+			callback(null, results, source);
 		});
 	}
 };

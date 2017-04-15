@@ -14,60 +14,45 @@ module.exports = {
 		var results = [];
 		var source = {};
 
-		async.eachLimit(helpers.regions.ec2, helpers.MAX_REGIONS_AT_A_TIME, function(region, rcb){
-			var LocalAWSConfig = JSON.parse(JSON.stringify(AWSConfig));
+		async.each(helpers.regions.ec2, function(region, rcb){
+			var describeSecurityGroups = (cache.ec2 &&
+										  cache.ec2.describeSecurityGroups &&
+										  cache.ec2.describeSecurityGroups[region]) ?
+										  cache.ec2.describeSecurityGroups[region] : null;
 
-			// Update the region
-			LocalAWSConfig.region = region;
-			var ec2 = new AWS.EC2(LocalAWSConfig);
+			if (includeSource) {
+				source['describeSecurityGroups'] = {};
+				source['describeSecurityGroups'][region] = describeSecurityGroups;
+			}
 
-			// Get the account attributes
-			helpers.cache(cache, ec2, 'describeSecurityGroups', function(err, data) {
-				if (includeSource) source[region] = {error: err, data: data};
+			if (!describeSecurityGroups || describeSecurityGroups.err || !describeSecurityGroups.data) {
+				helpers.addResult(3, 'Unable to query for security groups', region);
+				return rcb();
+			}
 
-				if (err || !data || !data.SecurityGroups) {
-					results.push({
-						status: 3,
-						message: 'Unable to query for security groups',
-						region: region
-					});
+			if (!describeSecurityGroups.data.length) {
+				helpers.addResult(0, 'No security groups present', region);
+				return rcb();
+			}
 
-					return rcb();
-				}
+			for (s in describeSecurityGroups.data.SecurityGroups) {
+				var sg = describeSecurityGroups.data.SecurityGroups[s];
 
-				if (!data.SecurityGroups.length) {
-					results.push({
-						status: 0,
-						message: 'No security groups present',
-						region: region
-					});
-
-					return rcb();
-				}
-
-				for (s in data.SecurityGroups) {
-					if (data.SecurityGroups[s].GroupName === 'default') {
-						if (data.SecurityGroups[s].IpPermissions.length ||
-						 	data.SecurityGroups[s].IpPermissionsEgress.length) {
-							results.push({
-								status: 2,
-								message: 'Default security group has ' + data.SecurityGroups[s].IpPermissions.length + ' inbound and ' + data.SecurityGroups[s].IpPermissionsEgress.length + ' outbound rules',
-								region: region,
-								resource: data.SecurityGroups[s].GroupId
-							});
-						} else {
-							results.push({
-								status: 0,
-								message: 'Default security group does not have inbound or outbound rules',
-								region: region,
-								resource: data.SecurityGroups[s].GroupId
-							});
-						}
+				if (sg.GroupName === 'default') {
+					if (sg.IpPermissions.length ||
+					 	sg.IpPermissionsEgress.length) {
+						helpers.addResult(2,
+							'Default security group has ' + sg.IpPermissions.length + ' inbound and ' + sg.IpPermissionsEgress.length + ' outbound rules',
+							region, sg.GroupId);
+					} else {
+						helpers.addResult(0,
+							'Default security group does not have inbound or outbound rules',
+							region, sg.GroupId);
 					}
 				}
+			}
 
-				rcb();
-			});
+			rcb();
 		}, function(){
 			callback(null, results, source);
 		});

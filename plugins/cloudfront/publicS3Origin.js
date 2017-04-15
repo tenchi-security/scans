@@ -1,5 +1,4 @@
 var async = require('async');
-var AWS = require('aws-sdk');
 var helpers = require('../../helpers');
 
 module.exports = {
@@ -15,75 +14,57 @@ module.exports = {
 		var results = [];
 		var source = {};
 
-		var LocalAWSConfig = JSON.parse(JSON.stringify(AWSConfig));
+		var listDistributions = (cache.cloudfront &&
+								 cache.cloudfront.listDistributions &&
+								 cache.cloudfront.listDistributions['us-east-1']) ?
+								 cache.cloudfront.listDistributions['us-east-1'] : null;
 
-		// Update the region
-		LocalAWSConfig.region = 'us-east-1';
+		if (includeSource) {
+			source['listDistributions'] = {};
+			source['listDistributions'].global = listDistributions;
+		}
 
-		var cloudfront = new AWS.CloudFront(LocalAWSConfig);
+		if (!listDistributions || listDistributions.err || !listDistributions.data) {
+			helpers.addResult(results, 3, 'Unable to query for CloudFront distributions');
+			return callback(null, results, source);
+		}
 
-		helpers.cache(cache, cloudfront, 'listDistributions', function(err, data) {
-			if (includeSource) source.global = {error: err, data: data};
+		if (!listDistributions.data.length) {
+			helpers.addResult(0, 'No CloudFront distributions found');
+		}
 
-			if (err || !data || !data.DistributionList) {
-				results.push({
-					status: 3,
-					message: 'Unable to query for CloudFront distributions',
-					region: 'global'
-				});
+		return callback(null, results, source);
 
-				return callback(null, results, source);
+		async.each(listDistributions.data, function(distribution, cb){
+			if (!distribution.Origins ||
+				!distribution.Origins.Items ||
+				!distribution.Origins.Items.length) {
+				helpers.addResult(0, 'No CloudFront distributions found',
+						'global', distribution.DomainName);
+				return cb();
 			}
 
-			if (!data.DistributionList.Items || !data.DistributionList.Items.length) {
-				results.push({
-					status: 0,
-					message: 'No CloudFront distributions found',
-					region: 'global'
-				});
+			for (o in distribution.Origins.Items) {
+				var origin = distribution.Origins.Items[o];
 
-				return callback(null, results, source);
-			}
-
-			async.each(data.DistributionList.Items, function(distribution, cb){
-				if (!distribution.Origins || !distribution.Origins.Items || !distribution.Origins.Items.length) {
-					results.push({
-						status: 0,
-						message: 'No CloudFront distributions found',
-						resource: distribution.DomainName,
-						region: 'global'
-					});
-
+				if (origin.S3OriginConfig &&
+					(!origin.S3OriginConfig.OriginAccessIdentity ||
+					 !origin.S3OriginConfig.OriginAccessIdentity.length)) {
+					helpers.addResult(2, 'CloudFront distribution is using an S3 ' + 
+						'origin without an origin access identity', 'global',
+						distribution.DomainName);
 					return cb();
 				}
 
-				for (o in distribution.Origins.Items) {
-					var origin = distribution.Origins.Items[o];
+				helpers.addResult(0, 'CloudFront distribution is not using any S3 ' +
+						'origins without an origin access identity', 'global',
+						distribution.DomainName);
+			}
 
-					if (origin.S3OriginConfig && (!origin.S3OriginConfig.OriginAccessIdentity || !origin.S3OriginConfig.OriginAccessIdentity.length)) {
-						results.push({
-							status: 2,
-							message: 'CloudFront distribution is using an S3 origin without an origin access identity',
-							resource: distribution.DomainName,
-							region: 'global'
-						});
+			cb();
 
-						return cb();
-					}
-
-					results.push({
-						status: 0,
-						message: 'CloudFront distribution is not using any S3 origins without an origin access identity',
-						resource: distribution.DomainName,
-						region: 'global'
-					});
-				}
-
-				cb();
-
-			}, function(){
-				callback(null, results, source);
-			});
+		}, function(){
+			callback(null, results, source);
 		});
 	}
 };

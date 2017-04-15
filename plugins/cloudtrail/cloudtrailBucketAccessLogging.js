@@ -1,5 +1,4 @@
 var async = require('async');
-var AWS = require('aws-sdk');
 var helpers = require('../../helpers');
 
 module.exports = {
@@ -14,72 +13,63 @@ module.exports = {
 		var results = [];
 		var source = {};
 
-		async.eachLimit(helpers.regions.cloudtrail, helpers.MAX_REGIONS_AT_A_TIME, function(region, rcb){
-			var LocalAWSConfig = JSON.parse(JSON.stringify(AWSConfig));
+		async.each(helpers.regions.cloudtrail, function(region, rcb){
 
-			// Update the region
-			LocalAWSConfig.region = region;
-			var cloudtrail = new AWS.CloudTrail(LocalAWSConfig);
+			var describeTrails = (cache.cloudtrail &&
+								  cache.cloudtrail.describeTrails &&
+								  cache.cloudtrail.describeTrails[region]) ?
+								  cache.cloudtrail.describeTrails[region] : null;
 
-			helpers.cache(cache, cloudtrail, 'describeTrails', function(err, data) {
-				if (includeSource) source[region] = {error: err, data: data};
+			if (includeSource) {
+				source['describeTrails'] = {};
+				source['getBucketLogging'] = {};
+				source['describeTrails'][region] = describeTrails;
+			}
 
-				if (err) {
-					results.push({
-						status: 3,
-						message: 'Unable to query for CloudTrail policy',
-						region: region
-					});
+			if (!describeTrails || describeTrails.err || !describeTrails.data) {
+				helpers.addResult(3, 'Unable to query for CloudTrail policy', region);
+				return rcb();
+			}
 
-					return rcb();
+			if (!describeTrails.data.length) {
+				helpers.addResult(0, 'No S3 buckets to check', region);
+				return rcb();
+			}
+
+			async.each(describeTrails.data.trailList, function(trail, cb){
+				var getBucketLogging = (cache.s3 &&
+										cache.s3.getBucketLogging &&
+										cache.s3.getBucketLogging[region] &&
+										cache.s3.getBucketLogging[region][trail.S3BucketName]) ?
+										cache.s3.getBucketLogging[region][trail.S3BucketName] : null;
+
+				if (includeSource) {
+					source['getBucketLogging'][region] = getBucketLogging;
 				}
 
-				// Perform checks for establishing if MFA token is enabled
-				if (data && data.trailList) {
-					if (!data.trailList.length) {
-						results.push({
-							status: 0,
-							message: 'No S3 buckets to check',
-							region: region
-						});
-						return rcb();
-					}
+				if (!getBucketLogging || getBucketLogging.err || !getBucketLogging.data) {
+					helpers.addResult(3,
+						'Error querying for bucket policy for bucket: ' + trail.S3BucketName,
+						region, 'arn:aws:s3:::' + trail.S3BucketName)
 
-					delete AWSConfig.region;	// Remove region for S3-specific endpoints
-					AWSConfig.signatureVersion = 'v4';
-					var s3 = new AWS.S3(AWSConfig);
+					return cb();
+				}
 
-					async.eachLimit(data.trailList, 10, function(trailList, cb){
-						s3.getBucketLogging({Bucket:trailList.S3BucketName}, function(s3err, s3data){
-							if (s3data && s3data.LoggingEnabled) {
-								results.push({
-									status: 0,
-									message: 'Bucket: ' + trailList.S3BucketName + ' has S3 access logs enabled',
-									region: region,
-									resource: trailList.S3BucketName
-								});
-							} else {
-								results.push({
-									status: 1,
-									message: 'Bucket: ' + trailList.S3BucketName + ' has S3 access logs disabled',
-									region: region,
-									resource: trailList.S3BucketName
-								});
-							}
-							cb();
-						});
-					}, function(){
-						rcb();
-					});
+				if (getBucketLogging &&
+					getBucketLogging.data &&
+					getBucketLogging.data.LoggingEnabled) {
+					helpers.addResult(0,
+						'Bucket: ' + trail.S3BucketName + ' has S3 access logs enabled',
+						region, 'arn:aws:s3:::' + trail.S3BucketName);
 				} else {
-					results.push({
-						status: 3,
-						message: 'Unable to query for CloudTrail policy',
-						region: region
-					});
-
-					rcb();
+					helpers.addResult(1,
+						'Bucket: ' + trail.S3BucketName + ' has S3 access logs disabled',
+						region, 'arn:aws:s3:::' + trail.S3BucketName);
 				}
+
+				cb();
+			}, function(){
+				rcb();
 			});
 		}, function(){
 			callback(null, results, source);
