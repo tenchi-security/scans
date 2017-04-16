@@ -23,19 +23,6 @@ fs.readFile(sourceFile, 'utf8', function(sourceErr, cache){
 
     var categoryMap = {};
 
-    // OPTION 1: Configure AWS credentials through hard-coded key and secret
-    // var AWSConfig = {
-    //     accessKeyId: '',
-    //     secretAccessKey: '',
-    //     sessionToken: '',
-    //     region: 'us-east-1'
-    // };
-
-    // OPTION 2: Import an AWS config file containing credentials
-    // var AWSConfig = require(__dirname + '/credentials.json');
-
-    // OPTION 3: Set AWS credentials in environment variables
-
     if (securityReport) {
         console.log('Running security report. This may take a few minutes...\nFor more details on the results, run the scan again without the --security-report argument.');
     } else {
@@ -43,7 +30,7 @@ fs.readFile(sourceFile, 'utf8', function(sourceErr, cache){
     }
 
     async.forEachOfLimit(plugins, 10, function(plugin, key, callback){
-        plugin.run(AWSConfig, cache, false, function(err, results){
+        plugin.run(cache, false, function(err, results){
             var benchmarkStatus = 'PASS';
             for (r in results) {
                 var statusWord;

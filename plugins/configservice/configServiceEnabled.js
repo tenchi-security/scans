@@ -9,7 +9,7 @@ module.exports = {
 	recommended_action: 'Enable the AWS Config Service for all regions and resources in an account. Ensure that it is properly recording and delivering logs.',
 	link: 'https://aws.amazon.com/config/details/',
 
-	run: function(AWSConfig, cache, includeSource, callback) {
+	run: function(cache, includeSource, callback) {
 		var results = [];
 		var source = {};
 
@@ -26,58 +26,64 @@ module.exports = {
 				  cache.configservice.describeConfigurationRecorderStatus[region]) ?
 				  cache.configservice.describeConfigurationRecorderStatus[region] : null;
 
-			if (includeSource) {
-				source['describeConfigurationRecorders'] = {};
-				source['describeConfigurationRecorderStatus'] = {};
-				source['describeConfigurationRecorders'][region] = describeConfigurationRecorders;
-				source['describeConfigurationRecorderStatus'][region] = describeConfigurationRecorderStatus;
-			}
-
 			if (describeConfigurationRecorders &&
 				describeConfigurationRecorders.data &&
-				describeConfigurationRecorders.data.ConfigurationRecorders &&
-				describeConfigurationRecorders.data.ConfigurationRecorders[0] &&
-				describeConfigurationRecorders.data.ConfigurationRecorders[0].recordingGroup &&
-				describeConfigurationRecorders.data.ConfigurationRecorders[0].recordingGroup.includeGlobalResourceTypes) {
+				describeConfigurationRecorders.data &&
+				describeConfigurationRecorders.data[0] &&
+				describeConfigurationRecorders.data[0].recordingGroup &&
+				describeConfigurationRecorders.data[0].recordingGroup.includeGlobalResourceTypes) {
 				globalServicesMonitored = true;
 			}
 
+			if (!describeConfigurationRecorders) return rcb();
+
+			// TODO: loop through ALL config recorders
+			// TODO: add resource ARN for config recorders
+
 			if (!describeConfigurationRecorderStatus ||
 				describeConfigurationRecorderStatus.err ||
-				!describeConfigurationRecorderStatus.data ||
-				!describeConfigurationRecorderStatus.data.ConfigurationRecordersStatus) {
-				helpers.addResults(3, 'Unable to query for Config Service status', region);
+				!describeConfigurationRecorderStatus.data) {
+				helpers.addResult(results, 3, 'Unable to query for Config Service status', region);
 				return rcb();
 			}
 
-			if (describeConfigurationRecorderStatus.data.ConfigurationRecordersStatus[0]) {
-				var crs = describeConfigurationRecorderStatus.data.ConfigurationRecordersStatus[0];
+			if (describeConfigurationRecorderStatus.data[0]) {
+				var crs = describeConfigurationRecorderStatus.data[0];
 
 				if (crs.recording) {
 					if (crs.lastStatus &&
 						(crs.lastStatus == 'SUCCESS' ||
 						 crs.lastStatus == 'PENDING')) {
-						helpers.addResults(0,
+						helpers.addResult(results, 0,
 							'Config Service is configured, recording, and delivering properly', region);
 					} else {
-						helpers.addResults(1,
+						helpers.addResult(results, 1,
 							'Config Service is configured, and recording, but not delivering properly', region);
 					}
 				} else {
-					helpers.addResults(2, 'Config Service is configured but not recording', region);
+					helpers.addResult(results, 2, 'Config Service is configured but not recording', region);
 				}
 
 				return rcb();
 			}
 
-			helpers.addResults(2, 'Config Service is not configured', region);
+			helpers.addResult(results, 2, 'Config Service is not configured', region);
 
 			rcb();
 		}, function(){
 			if (!globalServicesMonitored) {
-				helpers.addResults(2, 'Config Service is not monitoring global services');
+				helpers.addResult(results, 2, 'Config Service is not monitoring global services');
 			} else {
-				helpers.addResults(0, 'Config Service is monitoring global services');
+				helpers.addResult(results, 0, 'Config Service is monitoring global services');
+			}
+
+			if (includeSource) {
+				source = {
+					describeConfigurationRecorders: (cache.configservice && cache.configservice.describeConfigurationRecorders) ?
+									 cache.configservice.describeConfigurationRecorders : null,
+					describeConfigurationRecorderStatus: (cache.configservice && cache.configservice.describeConfigurationRecorderStatus) ?
+									 cache.configservice.describeConfigurationRecorderStatus : null
+				}
 			}
 
 			callback(null, results, source);

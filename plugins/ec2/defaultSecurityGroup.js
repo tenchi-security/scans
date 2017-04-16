@@ -1,4 +1,3 @@
-var AWS = require('aws-sdk');
 var async = require('async');
 var helpers = require('../../helpers');
 
@@ -10,7 +9,7 @@ module.exports = {
 	link: 'http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-network-security.html#default-security-group',
 	recommended_action: 'Update the rules for the default security group to deny all traffic by default',
 
-	run: function(AWSConfig, cache, includeSource, callback) {
+	run: function(cache, includeSource, callback) {
 		var results = [];
 		var source = {};
 
@@ -20,32 +19,29 @@ module.exports = {
 										  cache.ec2.describeSecurityGroups[region]) ?
 										  cache.ec2.describeSecurityGroups[region] : null;
 
-			if (includeSource) {
-				source['describeSecurityGroups'] = {};
-				source['describeSecurityGroups'][region] = describeSecurityGroups;
-			}
+			if (!describeSecurityGroups) return rcb();
 
-			if (!describeSecurityGroups || describeSecurityGroups.err || !describeSecurityGroups.data) {
-				helpers.addResult(3, 'Unable to query for security groups', region);
+			if (describeSecurityGroups.err || !describeSecurityGroups.data) {
+				helpers.addResult(results, 3, 'Unable to query for security groups', region);
 				return rcb();
 			}
 
 			if (!describeSecurityGroups.data.length) {
-				helpers.addResult(0, 'No security groups present', region);
+				helpers.addResult(results, 0, 'No security groups present', region);
 				return rcb();
 			}
 
-			for (s in describeSecurityGroups.data.SecurityGroups) {
-				var sg = describeSecurityGroups.data.SecurityGroups[s];
+			for (s in describeSecurityGroups.data) {
+				var sg = describeSecurityGroups.data[s];
 
 				if (sg.GroupName === 'default') {
 					if (sg.IpPermissions.length ||
 					 	sg.IpPermissionsEgress.length) {
-						helpers.addResult(2,
+						helpers.addResult(results, 2,
 							'Default security group has ' + sg.IpPermissions.length + ' inbound and ' + sg.IpPermissionsEgress.length + ' outbound rules',
 							region, sg.GroupId);
 					} else {
-						helpers.addResult(0,
+						helpers.addResult(results, 0,
 							'Default security group does not have inbound or outbound rules',
 							region, sg.GroupId);
 					}
@@ -54,6 +50,13 @@ module.exports = {
 
 			rcb();
 		}, function(){
+			if (includeSource) {
+				source = {
+					describeSecurityGroups: (cache.ec2 && cache.ec2.describeSecurityGroups) ?
+									 		 cache.ec2.describeSecurityGroups : null
+				}
+			}
+
 			callback(null, results, source);
 		});
 	}

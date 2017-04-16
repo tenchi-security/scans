@@ -9,7 +9,7 @@ module.exports = {
 	link: 'http://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html',
 	recommended_action: 'Create an origin access identity for CloudFront, then make the contents of the S3 bucket private.',
 
-	run: function(AWSConfig, cache, includeSource, callback) {
+	run: function(cache, includeSource, callback) {
 
 		var results = [];
 		var source = {};
@@ -19,12 +19,9 @@ module.exports = {
 								 cache.cloudfront.listDistributions['us-east-1']) ?
 								 cache.cloudfront.listDistributions['us-east-1'] : null;
 
-		if (includeSource) {
-			source['listDistributions'] = {};
-			source['listDistributions'].global = listDistributions;
-		}
+		if (!listDistributions) return callback(null, results, source);
 
-		if (!listDistributions || listDistributions.err || !listDistributions.data) {
+		if (listDistributions.err || !listDistributions.data) {
 			helpers.addResult(results, 3, 'Unable to query for CloudFront distributions');
 			return callback(null, results, source);
 		}
@@ -51,17 +48,23 @@ module.exports = {
 					helpers.addResult(results, 2, 'CloudFront distribution is using an S3 ' + 
 						'origin without an origin access identity', 'global',
 						distribution.DomainName);
-					return cb();
+				} else {
+					helpers.addResult(results, 0, 'CloudFront distribution origin is not setup ' +
+							'without an origin access identity', 'global',
+							distribution.DomainName);
 				}
-
-				helpers.addResult(results, 0, 'CloudFront distribution is not using any S3 ' +
-						'origins without an origin access identity', 'global',
-						distribution.DomainName);
 			}
 
 			cb();
 
 		}, function(){
+			if (includeSource) {
+				source = {
+					listDistributions: (cache.cloudfront && cache.cloudfront.listDistributions) ?
+									    cache.cloudfront.listDistributions : null
+				}
+			}
+
 			callback(null, results, source);
 		});
 	}

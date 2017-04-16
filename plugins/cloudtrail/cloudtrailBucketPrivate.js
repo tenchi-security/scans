@@ -9,7 +9,7 @@ module.exports = {
 	recommended_action: 'Set the S3 bucket access policy for all CloudTrail buckets to only allow known users to access its files.',
 	link: 'http://docs.aws.amazon.com/AmazonS3/latest/dev/example-bucket-policies.html',
 
-	run: function(AWSConfig, cache, includeSource, callback) {
+	run: function(cache, includeSource, callback) {
 		var results = [];
 		var source = {};
 
@@ -20,35 +20,27 @@ module.exports = {
 								  cache.cloudtrail.describeTrails[region]) ?
 								  cache.cloudtrail.describeTrails[region] : null;
 
-			if (includeSource) {
-				source['describeTrails'] = {};
-				source['getBucketAcl'] = {};
-				source['describeTrails'][region] = describeTrails;
-			}
+			if (!describeTrails) return rcb();
 
-			if (!describeTrails || describeTrails.err || !describeTrails.data) {
-				helpers.addResult(3, 'Unable to query for CloudTrail policy', region);
+			if (describeTrails.err || !describeTrails.data) {
+				helpers.addResult(results, 3, 'Unable to query for CloudTrail policy', region);
 				return rcb();
 			}
 
 			if (!describeTrails.data.length) {
-				helpers.addResult(0, 'No S3 buckets to check', region);
+				helpers.addResult(results, 0, 'No S3 buckets to check', region);
 				return rcb();
 			}
 
 			async.each(describeTrails.data, function(trail, cb){
 				var getBucketAcl = (cache.s3 &&
 								    cache.s3.getBucketAcl &&
-								    cache.s3.getBucketAcl[region] &&
-								    cache.s3.getBucketAcl[region][trail.S3BucketName]) ?
-								    cache.s3.getBucketAcl[region][trail.S3BucketName] : null;
-
-				if (includeSource) {
-					source['getBucketAcl'][region] = getBucketAcl;
-				}
+								    cache.s3.getBucketAcl['us-east-1'] &&
+								    cache.s3.getBucketAcl['us-east-1'][trail.S3BucketName]) ?
+								    cache.s3.getBucketAcl['us-east-1'][trail.S3BucketName] : null;
 
 				if (!getBucketAcl || getBucketAcl.err || !getBucketAcl.data) {
-					helpers.addResult(3,
+					helpers.addResult(results, 3,
 						'Error querying for bucket policy for bucket: ' + trail.S3BucketName,
 						region, 'arn:aws:s3:::' + trail.S3BucketName)
 
@@ -68,11 +60,11 @@ module.exports = {
 				}
 
 				if (allowsAllUsersTypes.length) {
-					helpers.addResult(2,
+					helpers.addResult(results, 2,
 						'Bucket: ' + trail.S3BucketName + ' allows global access to: ' + allowsAllUsersTypes.concat(', '),
 						region, 'arn:aws:s3:::' + trail.S3BucketName);
 				} else {
-					helpers.addResult(0,
+					helpers.addResult(results, 0,
 						'Bucket: ' + trail.S3BucketName + ' does not allow public access',
 						region, 'arn:aws:s3:::' + trail.S3BucketName);
 				}
@@ -82,6 +74,15 @@ module.exports = {
 				rcb();
 			});
 		}, function(){
+			if (includeSource) {
+				source = {
+					getBucketAcl: (cache.s3 && cache.s3.getBucketAcl) ?
+								   cache.s3.getBucketAcl : null,
+					describeTrails: (cache.cloudtrail && cache.cloudtrail.describeTrails) ?
+									 cache.cloudtrail.describeTrails : null
+				}
+			}
+
 			callback(null, results, source);
 		});
 	}

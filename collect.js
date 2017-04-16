@@ -4,6 +4,19 @@ var helpers = require(__dirname + '/helpers');
 var collectors = require(__dirname + '/collectors');
 var collection = {};
 
+// OPTION 1: Configure AWS credentials through hard-coded key and secret
+// var AWSConfig = {
+//     accessKeyId: '',
+//     secretAccessKey: '',
+//     sessionToken: '',
+//     region: 'us-east-1'
+// };
+
+// OPTION 2: Import an AWS config file containing credentials
+// var AWSConfig = require(__dirname + '/credentials.json');
+
+// OPTION 3: Set AWS credentials in environment variables
+
 var AWSConfig = {};
 
 var calls = {
