@@ -77,7 +77,7 @@ var calls = {
 		},
 		getAccountPasswordPolicy: {
 			property: 'PasswordPolicy'
-		}
+		},
 		generateCredentialReport: {
 			override: true
 		}
@@ -142,27 +142,21 @@ var postcalls = [
 				filterKey: 'Bucket',
 				filterValue: 'S3BucketName'
 			}
-		}
-	},
-	{
+		},
 		EC2: {
 			describeSubnets: {
 				reliesOnService: 'ec2',
 				reliesOnCall: 'describeVpcs',
 				override: true
 			}
-		}
-	}
-	{
+		},
 		ELB: {
 			describeLoadBalancerPolicies: {
 				reliesOnService: 'elb',
 				reliesOnCall: 'describeLoadBalancers',
 				override: true
 			}
-		}
-	},
-	{
+		},
 		IAM: {
 			getGroup: {
 				reliesOnService: 'iam',
@@ -194,9 +188,7 @@ var postcalls = [
 				filterKey: 'UserName',
 				filterValue: 'UserName'
 			}
-		}
-	},
-	{
+		},
 		KMS: {
 			describeKey: {
 				reliesOnService: 'kms',
@@ -210,9 +202,7 @@ var postcalls = [
 				filterKey: 'KeyId',
 				filterValue: 'KeyId'
 			}
-		}
-	},
-	{
+		},
 		SES: {
 			getIdentityDkimAttributes: {
 				reliesOnService: 'ses',
@@ -225,13 +215,13 @@ var postcalls = [
 ];
 
 // Loop through all of the top-level collectors for each service
-async.eachOfLimit(calls, 5, function(call, service, serviceCb){
+async.eachOfLimit(calls, 10, function(call, service, serviceCb){
 	var serviceLower = service.toLowerCase();
 
 	if (!collection[serviceLower]) collection[serviceLower] = {};
 
 	// Loop through each of the service's functions
-	async.eachOfLimit(call, 5, function(callObj, callKey, callCb){
+	async.eachOfLimit(call, 10, function(callObj, callKey, callCb){
 		if (!collection[serviceLower][callKey]) collection[serviceLower][callKey] = {};
 
 		async.eachLimit(helpers.regions[serviceLower], helpers.MAX_REGIONS_AT_A_TIME, function(region, regionCb){
@@ -296,7 +286,7 @@ async.eachOfLimit(calls, 5, function(call, service, serviceCb){
 }, function(){
 	// Now loop through the follow up calls
 	async.eachSeries(postcalls, function(postcallObj, postcallCb){
-		async.eachOfLimit(postcallObj, 1, function(serviceObj, service, serviceCb){
+		async.eachOfLimit(postcallObj, 10, function(serviceObj, service, serviceCb){
 			var serviceLower = service.toLowerCase();
 			if (!collection[serviceLower]) collection[serviceLower] = {};
 
@@ -310,17 +300,21 @@ async.eachOfLimit(calls, 5, function(call, service, serviceCb){
 					//console.log(service + ' ' + callKey + ' ' + region + ' ' + callObj.reliesOnService);
 
 					// Ensure pre-requisites are met
-					if (callObj.reliesOnService && !collection[reliesOnService]) return regionCb();
+					if (callObj.reliesOnService && !collection[callObj.reliesOnService]) return regionCb();
 
 					if (callObj.reliesOnCall &&
-						(!collection[reliesOnService] ||
-						 !collection[reliesOnService][reliesOnCall] ||
-						 !collection[reliesOnService][reliesOnCall][region] ||
-						 !collection[reliesOnService][reliesOnCall][region].data ||
-						 !collection[reliesOnService][reliesOnCall][region].data.length)) return regionCb();
+						(!collection[callObj.reliesOnService] ||
+						 !collection[callObj.reliesOnService][callObj.reliesOnCall] ||
+						 !collection[callObj.reliesOnService][callObj.reliesOnCall][region] ||
+						 !collection[callObj.reliesOnService][callObj.reliesOnCall][region].data ||
+						 !collection[callObj.reliesOnService][callObj.reliesOnCall][region].data.length)) return regionCb();
 
 					var LocalAWSConfig = JSON.parse(JSON.stringify(AWSConfig));
-					if (!callObj.deleteRegion) LocalAWSConfig.region = region;
+					if (callObj.deleteRegion) {
+						delete LocalAWSConfig.region;
+					} else {
+						LocalAWSConfig.region = region;
+					}
 					if (callObj.signatureVersion) LocalAWSConfig.signatureVersion = callObj.signatureVersion;
 
 					if (callObj.override) {
@@ -336,18 +330,18 @@ async.eachOfLimit(calls, 5, function(call, service, serviceCb){
 					} else {
 						var executor = new AWS[service](LocalAWSConfig);
 
-						async.eachLimit(collection[service][reliesOnCall][AWSConfig.region].data, 10, function(dep, depCb){
-							collection[service][callKey][AWSConfig.region][dep[callObj.filterValue]] = {};
+						async.eachLimit(collection[callObj.reliesOnService][callObj.reliesOnCall][AWSConfig.region].data, 10, function(dep, depCb){
+							collection[serviceLower][callKey][AWSConfig.region][dep[callObj.filterValue]] = {};
 
 							var filter = {};
 							filter[callObj.filterKey] = dep[callObj.filterValue];
 
 							executor[callKey](filter, function(err, data){
 								if (err) {
-									collection[service][callKey][AWSConfig.region][dep[callObj.filterValue]].err = err;
+									collection[serviceLower][callKey][AWSConfig.region][dep[callObj.filterValue]].err = err;
 								}
 
-								collection[service][callKey][AWSConfig.region][dep[callObj.filterValue]].data = data;
+								collection[serviceLower][callKey][AWSConfig.region][dep[callObj.filterValue]].data = data;
 
 								depCb();
 							});

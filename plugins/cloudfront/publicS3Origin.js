@@ -30,16 +30,14 @@ module.exports = {
 		}
 
 		if (!listDistributions.data.length) {
-			helpers.addResult(0, 'No CloudFront distributions found');
+			helpers.addResult(results, 0, 'No CloudFront distributions found');
 		}
-
-		return callback(null, results, source);
 
 		async.each(listDistributions.data, function(distribution, cb){
 			if (!distribution.Origins ||
 				!distribution.Origins.Items ||
 				!distribution.Origins.Items.length) {
-				helpers.addResult(0, 'No CloudFront distributions found',
+				helpers.addResult(results, 0, 'No CloudFront distributions found',
 						'global', distribution.DomainName);
 				return cb();
 			}
@@ -50,13 +48,13 @@ module.exports = {
 				if (origin.S3OriginConfig &&
 					(!origin.S3OriginConfig.OriginAccessIdentity ||
 					 !origin.S3OriginConfig.OriginAccessIdentity.length)) {
-					helpers.addResult(2, 'CloudFront distribution is using an S3 ' + 
+					helpers.addResult(results, 2, 'CloudFront distribution is using an S3 ' + 
 						'origin without an origin access identity', 'global',
 						distribution.DomainName);
 					return cb();
 				}
 
-				helpers.addResult(0, 'CloudFront distribution is not using any S3 ' +
+				helpers.addResult(results, 0, 'CloudFront distribution is not using any S3 ' +
 						'origins without an origin access identity', 'global',
 						distribution.DomainName);
 			}

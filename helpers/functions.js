@@ -26,7 +26,7 @@ function mostRecentDate(dates) {
 	return mostRecentDate;
 }
 
-function addResults(results, status, message, region, resource){
+function addResult(results, status, message, region, resource){
 	results.push({
 		status: status,
 		message: message,
@@ -39,6 +39,5 @@ module.exports = {
 	daysBetween: daysBetween,
 	daysAgo: daysAgo,
 	mostRecentDate: mostRecentDate,
-	waitForCredentialReport: waitForCredentialReport,
-	addResults: addResults
+	addResult: addResult
 };

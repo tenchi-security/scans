@@ -50,9 +50,9 @@ module.exports = function(AWSConfig, collection, callback) {
 						for (f in csvFields) {
 							var field = csvFields[f];
 
-							if (field === 'TRUE') {
+							if (field === 'TRUE' || field === 'true') {
 								field = true;
-							} else if (field === 'FALSE') {
+							} else if (field === 'FALSE' || field === 'false') {
 								field = false;
 							} else if (field === 'N/A') {
 								field = null;
