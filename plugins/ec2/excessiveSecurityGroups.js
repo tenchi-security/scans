@@ -8,6 +8,7 @@ module.exports = {
 	more_info: 'Keeping the number of security groups to a minimum helps reduce the attack surface of an account. Rather than creating new groups with the same rules for each project, common rules should be grouped under the same security groups. For example, instead of adding port 22 from a known IP to every group, create a single "SSH" security group which can be used on multiple instances.',
 	link: 'http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/authorizing-access-to-an-instance.html',
 	recommended_action: 'Limit the number of security groups to prevent accidental authorizations',
+	apis: ['EC2:describeSecurityGroups'],
 
 	run: function(cache, includeSource, callback) {
 		var results = [];

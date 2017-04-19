@@ -8,6 +8,7 @@ module.exports = {
 	more_info: 'CloudTrail buckets contain large amounts of sensitive account data and should only be accessible by logged in users.',
 	recommended_action: 'Set the S3 bucket access policy for all CloudTrail buckets to only allow known users to access its files.',
 	link: 'http://docs.aws.amazon.com/AmazonS3/latest/dev/example-bucket-policies.html',
+	apis: ['CloudTrail:describeTrails', 'S3:getBucketAcl'],
 
 	run: function(cache, includeSource, callback) {
 		var results = [];

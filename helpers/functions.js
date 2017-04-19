@@ -1,5 +1,4 @@
 var async = require('async');
-var cache = require('./cache.js');
 
 var ONE_DAY = 24*60*60*1000;
 

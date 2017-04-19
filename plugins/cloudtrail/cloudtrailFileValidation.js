@@ -8,6 +8,7 @@ module.exports = {
 	more_info: 'CloudTrail file validation is essentially a hash of the file which can be used to ensure its integrity in the case of an account compromise.',
 	recommended_action: 'Enable CloudTrail file validation for all regions',
 	link: 'http://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-log-file-validation-enabling.html',
+	apis: ['CloudTrail:describeTrails'],
 
 	run: function(cache, includeSource, callback) {
 		var results = [];

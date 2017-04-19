@@ -8,6 +8,7 @@ module.exports = {
 	more_info: 'Having numerous, unused access keys extends the attack surface. Access keys should be removed if they are no longer being used.',
 	link: 'http://docs.aws.amazon.com/IAM/latest/UserGuide/ManagingCredentials.html',
 	recommended_action: 'Log into the IAM portal and remove the offending access key.',
+	apis: ['IAM:generateCredentialReport'],
 
 	run: function(cache, includeSource, callback) {
 
@@ -21,16 +22,16 @@ module.exports = {
 									    cache.iam.generateCredentialReport[region]) ?
 									    cache.iam.generateCredentialReport[region] : null;
 
-		if (!generateCredentialReport) return callback();
+		if (!generateCredentialReport) return callback(null, results, source);
 
 		if (generateCredentialReport.err || !generateCredentialReport.data) {
 			helpers.addResult(results, 3, 'Unable to query for users');
-			return callback();
+			return callback(null, results, source);
 		}
 
 		if (generateCredentialReport.data.length <= 2) {
 			helpers.addResult(results, 0, 'No users using access keys found');
-			return callback();
+			return callback(null, results, source);
 		}
 
 		var found = false;

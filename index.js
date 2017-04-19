@@ -5,6 +5,19 @@ var cache = {};
 var securityReport = (process.argv.indexOf('--security-report') > -1);
 var sourceFile = process.argv[process.argv.indexOf('--source') + 1];
 
+// OPTION 1: Configure AWS credentials through hard-coded key and secret
+// var AWSConfig = {
+//     accessKeyId: '',
+//     secretAccessKey: '',
+//     sessionToken: '',
+//     region: 'us-east-1'
+// };
+
+// OPTION 2: Import an AWS config file containing credentials
+// var AWSConfig = require(__dirname + '/credentials.json');
+
+// OPTION 3: Set AWS credentials in environment variables
+
 if (!sourceFile) {
     return console.log('ERROR: Please provide a source file via --source /path/to file');
 }

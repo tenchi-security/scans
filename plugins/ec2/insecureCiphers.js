@@ -83,6 +83,7 @@ module.exports = {
 	more_info: 'Various security vulnerabilities have rendered several ciphers insecure. Only the recommended ciphers should be used.',
 	link: 'http://docs.aws.amazon.com/ElasticLoadBalancing/latest/DeveloperGuide/elb-security-policy-options.html',
 	recommended_action: 'Update your ELBs to use the recommended cipher suites',
+	apis: ['EC2:describeLoadBalancers', 'EC2:describeLoadBalancerPolicies'],
 
 	run: function(cache, includeSource, callback) {
 		var results = [];

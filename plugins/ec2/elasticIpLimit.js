@@ -8,6 +8,7 @@ module.exports = {
 	more_info: 'AWS limits accounts to certain numbers of resources. Exceeding those limits could prevent resources from launching.',
 	recommended_action: 'Contact AWS support to increase the number of EIPs available',
 	link: 'http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html#using-instance-addressing-limit',
+	apis: ['EC2:describeAccountAttributes', 'EC2:describeAddresses'],
 
 	run: function(cache, includeSource, callback) {
 		var results = [];
