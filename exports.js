@@ -43,6 +43,7 @@ module.exports = {
     'publicAmi'                     : require(__dirname + '/plugins/ec2/publicAmi.js'),
     'encryptedAmi'                  : require(__dirname + '/plugins/ec2/encryptedAmi.js'),
     'instanceIamRole'               : require(__dirname + '/plugins/ec2/instanceIamRole.js'),
+    'natMultiAz'                    : require(__dirname + '/plugins/ec2/natMultiAz.js'),
 
     'insecureCiphers'               : require(__dirname + '/plugins/elb/insecureCiphers.js'),
     'elbHttpsOnly'                  : require(__dirname + '/plugins/elb/elbHttpsOnly.js'),

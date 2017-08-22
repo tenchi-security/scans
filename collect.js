@@ -111,6 +111,20 @@ var calls = {
 					}
 				]
 			}
+		},
+		describeNatGateways: {
+			property: 'NatGateways',
+			params: {
+				Filter: [
+					{
+						Name: 'state',
+						Values: [
+							'available'
+						]
+					}
+				],
+				MaxResults: 1000
+			}
 		}
 	},
 	ELB: {
