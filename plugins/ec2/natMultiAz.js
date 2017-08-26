@@ -34,9 +34,6 @@ module.exports = {
             var vpcMap = {};
 
             // loop through nat gateways
-            {
-                'vpc123': ['subnet123', 'subnet456']
-            }
             describeNatGateways.data.forEach(function(Ngw){
                 if (!vpcMap[Ngw.VpcId]) vpcMap[Ngw.VpcId] = [];
                 if (vpcMap[Ngw.VpcId].indexOf(Ngw.SubnetId) === -1) {
