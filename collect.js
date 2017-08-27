@@ -278,6 +278,12 @@ var postcalls = [
 				reliesOnCall: 'listKeys',
 				filterKey: 'KeyId',
 				filterValue: 'KeyId'
+			},
+			getKeyPolicy: {
+				reliesOnService: 'kms',
+				reliesOnCall: 'listKeys',
+				filterKey: 'KeyId',
+				filterValue: 'KeyId'
 			}
 		},
 		SES: {

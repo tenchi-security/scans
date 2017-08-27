@@ -1,7 +1,7 @@
 // Export all available scans
 
 module.exports = {
-    'asgMultiAz'                       : require(__dirname + '/plugins/autoscaling/asgMultiAz.js'),
+    'asgMultiAz'                    : require(__dirname + '/plugins/autoscaling/asgMultiAz.js'),
 
     'publicS3Origin'                : require(__dirname + '/plugins/cloudfront/publicS3Origin.js'),
     'secureOrigin'                  : require(__dirname + '/plugins/cloudfront/secureOrigin.js'),
@@ -71,6 +71,7 @@ module.exports = {
     'usersMfaEnabled'               : require(__dirname + '/plugins/iam/usersMfaEnabled.js'),
 
     'kmsKeyRotation'                : require(__dirname + '/plugins/kms/kmsKeyRotation.js'),
+    'kmsDefaultKeyUsage'            : require(__dirname + '/plugins/kms/kmsDefaultKeyUsage.js'),
 
     'rdsAutomatedBackups'           : require(__dirname + '/plugins/rds/rdsAutomatedBackups.js'),
     'rdsEncryptionEnabled'          : require(__dirname + '/plugins/rds/rdsEncryptionEnabled.js'),
