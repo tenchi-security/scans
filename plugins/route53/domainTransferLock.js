@@ -1,4 +1,5 @@
 var helpers = require('../../helpers');
+var unsupportedDomains = ['.uk', '.co.uk', '.me.uk', '.org.uk', '.jp', '.ru'];
 
 module.exports = {
 	title: 'Domain Transfer Lock',
@@ -33,6 +34,20 @@ module.exports = {
 
 		for (i in listDomains.data) {
 			var domain = listDomains.data[i];
+
+			// Skip domains that don't support transfer locks
+			var skip = false;
+			
+			for (u in unsupportedDomains) {
+				var uns = unsupportedDomains[u];
+
+				if (domain.DomainName.indexOf(uns) === (domain.DomainName.length - uns.length)) {
+					skip = true;
+					break;
+				}
+			}
+
+			if (skip) continue;
 
 			if (domain.TransferLock) {
 				helpers.addResult(results, 0,
