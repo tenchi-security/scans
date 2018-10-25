@@ -195,6 +195,11 @@ var calls = {
 			property: 'FileSystems'
 		}
 	},
+	EKS: {
+		listClusters: {
+			property: 'clusters'
+		}
+	},
 	ElasticTranscoder: {
 		listPipelines: {
 			property: 'Pipelines'
@@ -371,6 +376,13 @@ var postcalls = [
 			describeSubnets: {
 				reliesOnService: 'ec2',
 				reliesOnCall: 'describeVpcs',
+				override: true
+			}
+		},
+		EKS: {
+			describeCluster: {
+				reliesOnService: 'eks',
+				reliesOnCall: 'listClusters',
 				override: true
 			}
 		},

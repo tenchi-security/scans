@@ -31,6 +31,7 @@ module.exports = {
 	cloudwatchlogs: regions,
 	configservice: regions,
 	ec2: regions,
+	eks: ['us-east-1', 'us-west-2', 'eu-west-1'],
 	elb: regions,
 	elbv2: regions,
 	kinesis: regions,
